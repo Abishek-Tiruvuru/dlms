@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PISO Shift Register Demo</title>
+    <style>
+        /* --- 1. General Setup & Typography --- */
+        :root {
+            --bg-color: #1a1a1d;
+            --card-color: #2c2c34;
+            --primary-color: #4a90e2; /* Blue */
+            --secondary-color: #50e3c2; /* Teal */
+            --accent-color: #ffeb3b; /* Yellow for coins */
+            --text-color: #f0f0f0;
+            --text-muted: #a0a0a0;
+            --border-color: #444;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --green: #28a745;
+            --red: #dc3545;
+            --orange: #fd7e14;
+            --logic-gate: #ffab40; /* Orange for gates */
+            --wire-color: #999;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1, h2, h3 {
+            color: var(--secondary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h1 { text-align: center; font-size: 2.5em; }
+        p, li { font-size: 1.1em; color: var(--text-muted); }
+        code {
+            background-color: #333;
+            color: var(--secondary-color);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .card {
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* --- 2. NEW: SVG Circuit Diagram Styles --- */
+        .svg-circuit-container {
+            width: 100%;
+            background-color: #222;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .svg-circuit {
+            /* Main SVG styles */
+            stroke-width: 2;
+            fill: none;
+        }
+        .svg-gate {
+            /* Style for AND, OR gates */
+            fill: #3a3a42;
+            stroke: var(--logic-gate);
+            stroke-width: 2;
+        }
+        .svg-ff {
+            /* Style for Flip-Flop boxes */
+            fill: #3a3a42;
+            stroke: var(--logic-gate);
+            stroke-width: 2;
+        }
+        .svg-wire {
+            stroke: var(--wire-color);
+            stroke-width: 2;
+        }
+        .svg-dot {
+            fill: var(--wire-color);
+            stroke: var(--wire-color);
+        }
+        .svg-label {
+            fill: var(--text-color);
+            font-size: 14px;
+            font-family: monospace;
+        }
+        .svg-label-input {
+            fill: var(--red);
+            font-weight: bold;
+        }
+        .svg-label-output {
+            fill: var(--primary-color);
+            font-weight: bold;
+        }
+        .svg-label-control {
+            fill: var(--green);
+            font-weight: bold;
+        }
+
+        /* --- 3. Coin Analogy Animation Styles (Reversed L-R) --- */
+        .animation-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .animation-box {
+            background-color: #222;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            width: 380px;
+            min-height: 220px;
+            text-align: center;
+        }
+        .anim-stage {
+            position: relative;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: monospace;
+        }
+        .anim-slot {
+            width: 60px;
+            height: 80px;
+            border: 3px solid #666;
+            border-radius: 10px;
+            background-color: #1a1a2e;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        .anim-slot-label {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .anim-coin {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.5em;
+            position: absolute;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .coin-1 { background-color: var(--accent-color); color: #222; }
+        .coin-0 { background-color: #555; color: #ccc; }
+
+        /* Animation: Parallel Load (Reversed) */
+        #load-anim .anim-coin {
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-200px);
+            opacity: 0;
+            animation: coinDrop 1.5s ease-out infinite;
+        }
+        #load-anim .s0 .anim-coin { animation-delay: 0s; }
+        #load-anim .s1 .anim-coin { animation-delay: 0.1s; }
+        #load-anim .s2 .anim-coin { animation-delay: 0.2s; }
+        #load-anim .s3 .anim-coin { animation-delay: 0.3s; }
+        
+        .p-label {
+            position: absolute;
+            top: 0;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--green);
+        }
+        #load-anim .p0 { left: 40px; }
+        #load-anim .p1 { left: 110px; }
+        #load-anim .p2 { left: 180px; }
+        #load-anim .p3 { left: 250px; }
+
+        @keyframes coinDrop {
+            0% { transform: translateX(-50%) translateY(-200px); opacity: 0; }
+            30% { transform: translateX(-50%) translateY(0); opacity: 1; }
+            70% { transform: translateX(-50%) translateY(0); opacity: 1; }
+            100% { transform: translateX(-50%) translateY(-200px); opacity: 0; }
+        }
+
+        /* Animation: Serial Shift (Reversed L-R) */
+        #shift-anim .anim-coin {
+            bottom: 5px;
+            left: 5px;
+            animation: 3s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        #shift-anim .s0 .anim-coin { animation-name: shift-lr; animation-delay: 0.6s; }
+        #shift-anim .s1 .anim-coin { animation-name: shift-lr; animation-delay: 0.4s; }
+        #shift-anim .s2 .anim-coin { animation-name: shift-lr; animation-delay: 0.2s; }
+        #shift-anim .s3 .anim-coin { animation-name: shift-out-lr; animation-delay: 0s; }
+
+        @keyframes shift-lr {
+            0%, 50% { transform: translateX(0); opacity: 1; }
+            75% { transform: translateX(70px); opacity: 1; } /* 70px = 60px slot + 10px gap */
+            76%, 100% { transform: translateX(70px); opacity: 0; }
+        }
+        @keyframes shift-out-lr {
+            0%, 50% { transform: translateX(0); opacity: 1; }
+            75% { transform: translateX(100px); opacity: 1; } /* Move to out box */
+            76%, 100% { transform: translateX(100px); opacity: 0; }
+        }
+        
+        .shift-in-0 {
+            bottom: 5px;
+            left: 5px;
+            opacity: 0;
+            animation: shift-in-lr 3s linear infinite;
+        }
+        @keyframes shift-in-lr {
+            0%, 74% { transform: translateX(-70px); opacity: 0; }
+            75%, 100% { transform: translateX(0); opacity: 1; }
+        }
+        
+        .anim-out-box {
+            width: 60px;
+            height: 80px;
+            border: 3px dashed var(--primary-color);
+            border-radius: 10px;
+            position: absolute;
+            right: -20px;
+            top: 50px;
+        }
+        .anim-out-label {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            color: var(--primary-color);
+        }
+
+        /* --- 4. Interactive Demo Styles (Reversed L-R) --- */
+        .interactive-demo {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 25px;
+            align-items: center;
+        }
+        @media (max-width: 768px) { .interactive-demo { grid-template-columns: 1fr; } }
+
+        .controls { display: flex; flex-direction: column; gap: 20px; }
+        .control-group { background: #3a3a42; padding: 15px; border-radius: 6px; }
+        .control-group label { display: block; font-weight: bold; color: var(--text-color); margin-bottom: 10px; }
+        .parallel-inputs { display: flex; justify-content: space-around; gap: 10px; }
+        .parallel-inputs div { display: flex; flex-direction: column; align-items: center; font-size: 0.9em; }
+        .parallel-inputs input[type="checkbox"] { width: 25px; height: 25px; cursor: pointer; }
+
+        .toggle-switch { position: relative; display: inline-block; width: 120px; height: 34px; }
+        .toggle-switch input { display: none; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--red); transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: "LOAD"; height: 26px; width: 55px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 26px; display: flex; align-items: center; justify-content: center; color: var(--red); font-weight: bold; font-size: 0.8em; }
+        input:checked + .slider { background-color: var(--green); }
+        input:checked + .slider:before { transform: translateX(60px); content: "SHIFT"; color: var(--green); width: 55px; }
+
+        .button-group { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+        .clock-button { background-color: var(--primary-color); color: white; border: none; padding: 15px; font-size: 1.2em; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background-color 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .clock-button:hover { background-color: #3a7bc8; }
+        .clock-button:active { transform: scale(0.98); }
+        .reset-button { background-color: var(--orange); color: white; border: none; padding: 15px; font-size: 1.2em; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background-color 0.3s; }
+        .reset-button:hover { background-color: #e6730a; }
+        .reset-button:active { transform: scale(0.98); }
+        #clock-count-display { text-align: center; font-size: 1.1em; font-weight: bold; color: var(--secondary-color); margin-top: 15px; background: #3a3a42; padding: 10px; border-radius: 6px; }
+
+        .visualizer { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .register-bank { display: flex; gap: 10px; border: 2px dashed var(--border-color); padding: 20px; border-radius: 8px; background: #222; }
+        .flip-flop { width: 70px; height: 70px; border: 2px solid var(--text-muted); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #333; transition: all 0.3s ease; }
+        .ff-label { font-size: 0.8em; color: var(--text-muted); }
+        .ff-value { font-size: 2em; font-weight: bold; font-family: monospace; }
+        .flip-flop.on { background-color: var(--secondary-color); border-color: var(--secondary-color); }
+        .flip-flop.on .ff-label { color: #000; }
+        .flip-flop.on .ff-value { color: #000; }
+        .serial-out { text-align: center; }
+        .serial-out-box { width: 70px; height: 70px; margin: 10px auto 0; border: 2px solid var(--primary-color); background: #222; }
+        .serial-out-box.on { background-color: var(--primary-color); }
+        .serial-out-box.on .ff-value { color: white; }
+
+        /* --- 5. Timing Table Styles (Reversed L-R) --- */
+        .timing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+        .timing-table th, .timing-table td { border: 1px solid var(--border-color); padding: 12px; text-align: center; }
+        .timing-table th { background-color: #3a3a42; color: var(--secondary-color); }
+        .timing-table td { background-color: #2c2c34; }
+        .timing-table .mode-load { color: var(--red); font-weight: bold; }
+        .timing-table .mode-shift { color: var(--green); font-weight: bold; }
+        .timing-table .data-out { background-color: var(--primary-color); color: #fff; font-weight: bold; }
+        .timing-table .data-in { background-color: var(--accent-color); color: #222; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Parallel-In Serial-Out (PISO) Shift Register</h1>
+
+        <div class="card">
+            <h2>What is a PISO Shift Register?</h2>
+            <p>
+                A **Parallel-In Serial-Out (PISO)** shift register is a digital circuit that loads multiple bits of data all at once (in **parallel**) and then outputs that data one single bit at a time (in **serial**).
+            </p>
+            <p>
+                Using the **Coin Holder Analogy:** Think of it like a 4-slot coin holder. "Parallel Load" is like dropping 4 coins into the 4 slots all at once. "Serial Shift" is like pushing a button that dispenses only one coin at a time from the *end* (right side), while all the other coins slide over to the right.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Internal Logic (SVG Circuit Diagram)</h2>
+            <p>This is a complete, accurate diagram of a 4-bit PISO register. It shows how the <strong>Shift/Load</strong> signal (<code>0</code>=Load, <code>1</code>=Shift) controls a multiplexer (MUX) at each flip-flop's input.</p>
+            <div class="svg-circuit-container">
+                <svg viewBox="0 0 900 650" class="svg-circuit">
+                    <defs>
+                        <g id="and-gate">
+                            <path d="M0,0 H30 C41.046,0 50,8.954 50,20 C50,31.046 41.046,40 30,40 H0 Z" class="svg-gate"/>
+                        </g>
+                        <g id="or-gate">
+                            <path d="M10,0 C10,0 30,20 10,40 C10,40 0,40 0,40 Q25,20 0,0 C0,0 10,0 10,0 Z M0,0 C25,0 50,20 50,20 C50,20 25,40 0,40" class="svg-gate" />
+                        </g>
+                        <g id="not-gate">
+                            <polygon points="0,0 15,10 0,20" class="svg-gate" />
+                            <circle cx="18" cy="10" r="3" class="svg-gate" stroke="var(--logic-gate)" fill="var(--bg-color)" />
+                        </g>
+                    </defs>
+
+                    <text x="10" y="35" class="svg-label-control">Shift/Load</text>
+                    <path d="M80,30 H800" class="svg-wire" /> <path d="M80,30 V60" class="svg-wire" />
+                    <use href="#not-gate" x="70" y="50" />
+                    <path d="M91,60 H800" class="svg-wire" /> <text x="10" y="625" class="svg-label-control">Clock (Clk)</text>
+                    <path d="M80,620 H800" class="svg-wire" />
+
+                    <text x="10" y="105" class="svg-label-input">P0</text>
+                    <path d="M10,100 H100" class="svg-wire" />
+                    <text x="10" y="165" class="svg-label" text-anchor="middle">0</text>
+                    <path d="M10,160 H100" class="svg-wire" />
+                    
+                    <use href="#and-gate" x="100" y="80" /> <path d="M150,100 H160" class="svg-wire" />
+                    <path d="M125,80 V63" class="svg-wire" />
+                    <circle cx="125" cy="60" r="3" class="svg-dot" />
+                    
+                    <use href="#and-gate" x="100" y="140" /> <path d="M150,160 H160" class="svg-wire" />
+                    <path d="M125,180 V33" class="svg-wire" />
+                    <circle cx="125" cy="30" r="3" class="svg-dot" />
+                    
+                    <use href="#or-gate" x="160" y="110" />
+                    <path d="M210,130 H230" class="svg-wire" />
+                    <text x="215" y="125" class="svg-label">D0</text>
+                    
+                    <rect x="230" y="100" width="80" height="60" class="svg-ff" />
+                    <text x="270" y="135" text-anchor="middle" class="svg-label">Q0</text>
+                    <path d="M230,140 H220 V623" class="svg-wire" /> <circle cx="220" cy="620" r="3" class="svg-dot" />
+                    <path d="M310,130 H360" class="svg-wire" /> <text x="10" y="245" class="svg-label-input">P1</text>
+                    <path d="M10,240 H100" class="svg-wire" />
+                    
+                    <use href="#and-gate" x="100" y="220" /> <path d="M150,240 H160" class="svg-wire" />
+                    <path d="M125,220 V63" class="svg-wire" />
+                    <circle cx="125" cy="60" r="3" class="svg-dot" />
+                    
+                    <use href="#and-gate" x="100" y="280" /> <path d="M360,130 V300 H100" class="svg-wire" /> <text x="350" y="125" class="svg-label">Q0</text>
+                    <path d="M150,300 H160" class="svg-wire" />
+                    <path d="M125,320 V33" class="svg-wire" />
+                    <circle cx="125" cy="30" r="3" class="svg-dot" />
+                    
+                    <use href="#or-gate" x="160" y="250" />
+                    <path d="M210,270 H230" class="svg-wire" />
+                    <text x="215" y="265" class="svg-label">D1</text>
+                    
+                    <rect x="230" y="240" width="80" height="60" class="svg-ff" />
+                    <text x="270" y="275" text-anchor="middle" class="svg-label">Q1</text>
+                    <path d="M230,280 H220 V623" class="svg-wire" /> <circle cx="220" cy="620" r="3" class="svg-dot" />
+                    <path d="M310,270 H360" class="svg-wire" /> <text x="10" y="385" class="svg-label-input">P2</text>
+                    <path d="M10,380 H100" class="svg-wire" />
+                    
+                    <use href="#and-gate" x="100" y="360" /> <path d="M150,380 H160" class="svg-wire" />
+                    <path d="M125,360 V63" class="svg-wire" />
+                    <circle cx="125" cy="60" r="3" class="svg-dot" />
+                    
+                    <use href="#and-gate" x="100" y="420" /> <path d="M360,270 V440 H100" class="svg-wire" /> <text x="350" y="265" class="svg-label">Q1</text>
+                    <path d="M150,440 H160" class="svg-wire" />
+                    <path d="M125,460 V33" class="svg-wire" />
+                    <circle cx="125" cy="30" r="3" class="svg-dot" />
+                    
+                    <use href="#or-gate" x="160" y="390" />
+                    <path d="M210,410 H230" class="svg-wire" />
+                    <text x="215" y="405" class="svg-label">D2</text>
+                    
+                    <rect x="230" y="380" width="80" height="60" class="svg-ff" />
+                    <text x="270" y="415" text-anchor="middle" class="svg-label">Q2</text>
+                    <path d="M230,420 H220 V623" class="svg-wire" /> <circle cx="220" cy="620" r="3" class="svg-dot" />
+                    <path d="M310,410 H360" class="svg-wire" /> <text x="10" y="525" class="svg-label-input">P3</text>
+                    <path d="M10,520 H100" class="svg-wire" />
+                    
+                    <use href="#and-gate" x="100" y="500" /> <path d="M150,520 H160" class="svg-wire" />
+                    <path d="M125,500 V63" class="svg-wire" />
+                    <circle cx="125" cy="60" r="3" class="svg-dot" />
+                    
+                    <use href="#and-gate" x="100" y="560" /> <path d="M360,410 V580 H100" class="svg-wire" /> <text x="350" y="405" class="svg-label">Q2</text>
+                    <path d="M150,580 H160" class="svg-wire" />
+                    <path d="M125,600 V33" class="svg-wire" />
+                    <circle cx="125" cy="30" r="3" class="svg-dot" />
+                    
+                    <use href="#or-gate" x="160" y="530" />
+                    <path d="M210,550 H230" class="svg-wire" />
+                    <text x="215" y="545" class="svg-label">D3</text>
+                    
+                    <rect x="230" y="520" width="80" height="60" class="svg-ff" />
+                    <text x="270" y="555" text-anchor="middle" class="svg-label">Q3</text>
+                    <path d="M230,560 H220 V623" class="svg-wire" /> <circle cx="220" cy="620" r="3" class="svg-dot" />
+                    <path d="M310,550 H400" class="svg-wire" /> <text x="410" y="555" class="svg-label-output">SERIAL OUT</text>
+                    
+                </svg>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>How It Works: Per-Pulse Breakdown (Timing)</h2>
+            <p>This table shows exactly what happens at each clock pulse. Let's trace loading the parallel data <code>1010</code> (as P3, P2, P1, P0) and then shifting it out. This means <strong>P0=0, P1=1, P2=0, P3=1</strong>.</p>
+            <table class="timing-table">
+                <thead>
+                    <tr>
+                        <th>Clock Pulse</th>
+                        <th>Mode (SH/LD)</th>
+                        <th>Action</th>
+                        <th>Q0</th>
+                        <th>Q1</th>
+                        <th>Q2</th>
+                        <th>Q3</th>
+                        <th>Serial Out (Q3)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>0</td>
+                        <td>(Start)</td>
+                        <td>Initial State</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td class="mode-load">LOAD (0)</td>
+                        <td>Load P0, P1, P2, P3</td>
+                        <td class="data-in">0</td>
+                        <td class="data-in">1</td>
+                        <td class="data-in">0</td>
+                        <td class="data-in">1</td>
+                        <td>(1)</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td class="mode-shift">SHIFT (1)</td>
+                        <td>Shift Right, Out Q3</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td class="data-out">1</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td class="mode-shift">SHIFT (1)</td>
+                        <td>Shift Right, Out Q3</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td class="data-out">0</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td class="mode-shift">SHIFT (1)</td>
+                        <td>Shift Right, Out Q3</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td class="data-out">1</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td class="mode-shift">SHIFT (1)</td>
+                        <td>Shift Right, Out Q3</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td class="data-out">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+
+        <div class="card">
+            <h2>Animated Explanation (The Coin Analogy)</h2>
+            <p>Here are two animations showing the two modes. We'll load the data <code>1010</code> (P3=1, P2=0, P1=1, P0=0).</p>
+            <div class="animation-container">
+                <div class="animation-box">
+                    <h3>Mode 1: Parallel Load</h3>
+                    <p><code>SH/LD</code> is <strong>LOAD</strong>. On the clock pulse, all coins (P0-P3) drop into the slots (Q0-Q3) at the same time.</p>
+                    <div class="anim-stage" id="load-anim">
+                        <div class="p-label p0">P0=0</div>
+                        <div class="p-label p1">P1=1</div>
+                        <div class="p-label p2">P2=0</div>
+                        <div class="p-label p3">P3=1</div>
+                        
+                        <div class="anim-slot s0"><span class="anim-slot-label">Q0</span><div class="anim-coin coin-0">0</div></div>
+                        <div class="anim-slot s1"><span class="anim-slot-label">Q1</span><div class="anim-coin coin-1">1</div></div>
+                        <div class="anim-slot s2"><span class="anim-slot-label">Q2</span><div class="anim-coin coin-0">0</div></div>
+                        <div class="anim-slot s3"><span class="anim-slot-label">Q3</span><div class="anim-coin coin-1">1</div></div>
+                    </div>
+                </div>
+                <div class="animation-box">
+                    <h3>Mode 2: Serial Shift (Left-to-Right)</h3>
+                    <p><code>SH/LD</code> is <strong>SHIFT</strong>. On each clock pulse, coins shift one slot to the right (Q0 $\to$ Q1, etc.). The last coin (Q3) is pushed out.</p>
+                    <div class="anim-stage" id="shift-anim">
+                        <div class="anim-slot s0">
+                            <span class="anim-slot-label">Q0</span>
+                            <div class="anim-coin coin-0">0</div>
+                            <div class="anim-coin coin-0 shift-in-0">0</div>
+                        </div>
+                        <div class="anim-slot s1"><span class="anim-slot-label">Q1</span><div class="anim-coin coin-1">1</div></div>
+                        <div class="anim-slot s2"><span class="anim-slot-label">Q2</span><div class="anim-coin coin-0">0</div></div>
+                        <div class="anim-slot s3"><span class="anim-slot-label">Q3</span><div class="anim-coin coin-1">1</div></div>
+                        <div class="anim-out-box"><span class="anim-out-label">Serial Out</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Interactive PISO Simulator</h2>
+            <p>Now, let's control a register ourselves. The layout is <strong>Q0 to Q3 (left-to-right)</strong> to match the circuit diagram.</p>
+            <div class="interactive-demo">
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Control Signals</label>
+                        <label for="shift-load-toggle" style="font-size: 1em; font-weight: normal; margin-bottom: 10px;">Mode Select (SH/LD)</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="shift-load-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="parallel-inputs">Parallel Data Inputs (P0-P3)</label>
+                        <div class="parallel-inputs" id="parallel-inputs">
+                            <div><span>P0</span><input type="checkbox" class="p-input" data-index="0"></div>
+                            <div><span>P1</span><input type="checkbox" class="p-input" data-index="1"></div>
+                            <div><span>P2</span><input type="checkbox" class="p-input" data-index="2"></div>
+                            <div><span>P3</span><input type="checkbox" class="p-input" data-index="3"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button class="clock-button" id="clock-pulse">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                            </svg>
+                            Pulse Clock
+                        </button>
+                        <button class="reset-button" id="reset-button">
+                            Reset
+                        </button>
+                    </div>
+                    <div id="clock-count-display">Clock Pulses: 0</div>
+                </div>
+
+                <div class="visualizer">
+                    <h3>Register State</h3>
+                    <div class="register-bank">
+                        <div class="flip-flop" id="ff0"><span class="ff-label">Q0</span><span class="ff-value">0</span></div>
+                        <div class="flip-flop" id="ff1"><span class="ff-label">Q1</span><span class="ff-value">0</span></div>
+                        <div class="flip-flop" id="ff2"><span class="ff-label">Q2</span><span class="ff-value">0</span></div>
+                        <div class="flip-flop" id="ff3"><span class="ff-label">Q3</span><span class="ff-value">0</span></div>
+                    </div>
+                    <div class="serial-out">
+                        <h3>Serial Output (from Q3)</h3>
+                        <div class="flip-flop serial-out-box" id="s-out"><span class="ff-label">S_Out</span><span class="ff-value">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>How to Use the Simulator</h2>
+            <h3>Part 1: Parallel Load</h3>
+            <ol>
+                <li>Make sure the toggle switch is on <strong>LOAD</strong> (Red).</li>
+                <li>Set a 4-bit value. For example, check P1 and P3 for <code>1010</code> (reads <code>P3,P2,P1,P0</code>).</li>
+                <li>Click <strong>"Pulse Clock"</strong> (Counter: 1).</li>
+                <li>The "Register State" (Q0-Q3) will instantly update to <code>0101</code>. (Matches Pulse 1 in the table!)</li>
+            </ol>
+
+            <h3>Part 2: Serial Readout</h3>
+            <ol>
+                <li>After loading <code>0101</code>, flip the toggle switch to <strong>SHIFT</strong> (Green).</li>
+                <li>Click <strong>"Pulse Clock"</strong> (Counter: 2). The <code>1</code> from Q3 moves to <strong>Serial Output</strong>. The register becomes <code>0010</code>. (Matches Pulse 2!)</li>
+                <li>Click <strong>"Pulse Clock"</strong> (Counter: 3). The <code>0</code> from Q3 moves to Serial Out. The register becomes <code>0001</code>. (Matches Pulse 3!)</li>
+                <li>Click <strong>"Reset"</strong>. Everything goes back to <code>0</code>.</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const clockButton = document.getElementById('clock-pulse');
+            const shiftLoadToggle = document.getElementById('shift-load-toggle');
+            const pInputs = document.querySelectorAll('.p-input');
+            
+            const ffElements = [
+                document.getElementById('ff0'),
+                document.getElementById('ff1'),
+                document.getElementById('ff2'),
+                document.getElementById('ff3')
+            ];
+            
+            const sOutElement = document.getElementById('s-out');
+            const resetButton = document.getElementById('reset-button');
+            const clockCountDisplay = document.getElementById('clock-count-display');
+
+            let qState = [0, 0, 0, 0]; // Q0, Q1, Q2, Q3
+            let sOutState = 0;
+            let clockCount = 0;
+
+            clockButton.addEventListener('click', onClockPulse);
+            resetButton.addEventListener('click', onReset);
+
+            function onClockPulse() {
+                const isShiftMode = shiftLoadToggle.checked;
+                
+                if (isShiftMode) {
+                    // --- SHIFT Mode ---
+                    sOutState = qState[3]; // Output Q3
+                    qState[3] = qState[2];
+                    qState[2] = qState[1];
+                    qState[1] = qState[0];
+                    qState[0] = 0; // Shift a '0' into Q0
+                } else {
+                    // --- LOAD Mode ---
+                    pInputs.forEach(input => {
+                        const index = parseInt(input.dataset.index, 10);
+                        qState[index] = input.checked ? 1 : 0;
+                    });
+                    sOutState = qState[3]; // Output still reflects Q3
+                }
+                clockCount++;
+                updateUI();
+            }
+
+            function onReset() {
+                qState = [0, 0, 0, 0];
+                sOutState = 0;
+                clockCount = 0;
+                pInputs.forEach(input => input.checked = false);
+                updateUI();
+            }
+
+            function updateUI() {
+                qState.forEach((val, index) => {
+                    const el = ffElements[index];
+                    const valEl = el.querySelector('.ff-value');
+                    valEl.textContent = val;
+                    el.classList.toggle('on', val === 1);
+                });
+
+                const sOutValEl = sOutElement.querySelector('.ff-value');
+                sOutValEl.textContent = sOutState;
+                sOutElement.classList.toggle('on', sOutState === 1);
+
+                clockCountDisplay.textContent = `Clock Pulses: ${clockCount}`;
+            }
+            
+            updateUI(); // Initialize UI
+        });
+    </script>
+
+</body>
+</html>
